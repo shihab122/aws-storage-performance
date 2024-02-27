@@ -1,0 +1,12 @@
+{
+  "storages": [
+    { "type": "s3" },
+    { "type": "s3fs" },
+    { "type": "ebs", "ebsType": "gp3" },
+    { "type": "ebs", "ebsType": "io2" }
+  ],
+  "file": {
+    "type": "actual_file",
+    "local_path": "assets/Test Document.docx"
+  }
+}
