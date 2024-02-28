@@ -58,6 +58,8 @@ export class AwsStoragePerformanceStack extends Stack {
     super(scope, id, props);
 
     const vpc = new ec2.Vpc(this, 'VPC');
+    const subnets = vpc.selectSubnets();
+    const availabilityZone = subnets.subnets[0].availabilityZone;
 
     // Create IAM role
     const role = new iam.Role(this, 'aws-storage-performance-role', {
@@ -100,7 +102,13 @@ export class AwsStoragePerformanceStack extends Stack {
     for (const [index, storage] of config.storages.entries()) {
       switch (storage.type) {
         case StorageType.EBS:
-          this.createEBSVolume(role, ec2Instance, index, storage as Storage);
+          this.createEBSVolume(
+            role,
+            ec2Instance,
+            index,
+            availabilityZone,
+            storage as Storage
+          );
           break;
         case StorageType.EFS:
           this.createEFSFileSystem(
@@ -127,6 +135,7 @@ export class AwsStoragePerformanceStack extends Stack {
     role: iam.Role,
     ec2Instance: ec2.Instance,
     index: number,
+    availabilityZone: string,
     storage: Storage
   ) {
     let volumeType = ec2.EbsDeviceVolumeType.GP3;
@@ -143,7 +152,7 @@ export class AwsStoragePerformanceStack extends Stack {
       this,
       `aws-storage-performance-ebs-${index}`,
       {
-        availabilityZone: ec2Instance.instanceAvailabilityZone,
+        availabilityZone,
         size: Size.gibibytes(storage.size || 8),
         volumeType,
         iops,
@@ -164,9 +173,7 @@ export class AwsStoragePerformanceStack extends Stack {
   ) {
     let performanceMode = efs.PerformanceMode.GENERAL_PURPOSE;
 
-    if (storage.peformanceMode === PerformanceMode.GENERAL_PURPOSE) {
-      performanceMode = efs.PerformanceMode.GENERAL_PURPOSE;
-    } else if (storage.peformanceMode === PerformanceMode.MAX_IO) {
+    if (storage.peformanceMode === PerformanceMode.MAX_IO) {
       performanceMode = efs.PerformanceMode.MAX_IO;
     }
 
@@ -183,8 +190,12 @@ export class AwsStoragePerformanceStack extends Stack {
       }
     );
 
-    fileSystem.grantReadWrite(ec2Instance);
     fileSystem.connections.allowDefaultPortFrom(ec2Instance);
+    ec2Instance.userData.addCommands(
+      `sudo yum install -y amazon-efs-utils`,
+      `sudo mkdir /mnt/efs-${index}`,
+      `sudo mount -t efs -o tls ${fileSystem.fileSystemId}:/ /mnt/efs-${index}`
+    );
   }
 
   private createS3Bucket(ec2Instance: ec2.Instance, index: number) {
