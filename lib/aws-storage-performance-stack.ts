@@ -160,7 +160,7 @@ export class AwsStoragePerformanceStack extends Stack {
       }
     );
 
-    volume.grantAttachVolume(role, [ec2Instance]);
+    volume.grantAttachVolume(role);
     volume.applyRemovalPolicy(RemovalPolicy.DESTROY);
   }
 
