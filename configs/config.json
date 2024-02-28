@@ -2,8 +2,10 @@
   "storages": [
     { "type": "s3" },
     { "type": "s3fs" },
-    { "type": "ebs", "ebsType": "gp3" },
-    { "type": "ebs", "ebsType": "io2" }
+    { "type": "efs", "peformanceMode": "general_purpose", "size": 20 },
+    { "type": "efs", "peformanceMode": "max_io", "size": 20 },
+    { "type": "ebs", "ebsType": "gp3", "size": 20 },
+    { "type": "ebs", "ebsType": "io2", "size": 20 }
   ],
   "file": {
     "type": "actual_file",
