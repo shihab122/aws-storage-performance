@@ -88,7 +88,7 @@ export class AwsStoragePerformanceStack extends Stack {
         vpc,
         role,
         securityGroup,
-        instanceName: 'TestInstance',
+        instanceName: 'AWSStoragePerformanceInstance',
         instanceType: ec2.InstanceType.of(
           ec2.InstanceClass.T3,
           ec2.InstanceSize.MICRO
