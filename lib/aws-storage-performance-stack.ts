@@ -1,6 +1,9 @@
+import * as path from 'path';
+
 import { Stack, StackProps } from 'aws-cdk-lib';
 
 import { Construct } from 'constructs';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import { RemovalPolicy } from 'aws-cdk-lib';
 import { Size } from 'aws-cdk-lib';
 import config from '../configs/config.json';
@@ -8,6 +11,7 @@ import { aws_ec2 as ec2 } from 'aws-cdk-lib';
 import { aws_efs as efs } from 'aws-cdk-lib';
 import { aws_iam as iam } from 'aws-cdk-lib';
 import { aws_s3 as s3 } from 'aws-cdk-lib';
+import { aws_s3_assets as s3_assets } from 'aws-cdk-lib';
 
 enum StorageType {
   EBS = 'ebs',
@@ -98,13 +102,15 @@ export class AwsStoragePerformanceStack extends Stack {
         }),
       }
     );
+    ec2Instance.role.addManagedPolicy(
+      ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMFullAccess')
+    );
 
     for (const [index, storage] of config.storages.entries()) {
       switch (storage.type) {
         case StorageType.EBS:
           this.createEBSVolume(
             role,
-            ec2Instance,
             index,
             availabilityZone,
             storage as Storage
@@ -129,11 +135,21 @@ export class AwsStoragePerformanceStack extends Stack {
           break;
       }
     }
+
+    const s3Asset = new s3_assets.Asset(this, 'TestRunnerAsset', {
+      path: path.join(__dirname, config.file.local_path),
+    });
+    s3Asset.grantRead(ec2Instance);
+    ec2Instance.userData.addCommands(
+      `sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm`,
+      `sudo systemctl start amazon-ssm-agent`,
+      `aws s3 cp s3://${s3Asset.s3BucketName}/${s3Asset.s3ObjectKey} lib/test-runner/Test.docx`
+      // `npx ts-node lib/test-runner/index.ts`
+    );
   }
 
   private createEBSVolume(
     role: iam.Role,
-    ec2Instance: ec2.Instance,
     index: number,
     availabilityZone: string,
     storage: Storage
@@ -156,6 +172,7 @@ export class AwsStoragePerformanceStack extends Stack {
         size: Size.gibibytes(storage.size || 8),
         volumeType,
         iops,
+        volumeName: `aws-storage-performance-ebs-${index}`,
         encrypted: true,
       }
     );
@@ -187,6 +204,7 @@ export class AwsStoragePerformanceStack extends Stack {
         lifecyclePolicy: efs.LifecyclePolicy.AFTER_7_DAYS,
         performanceMode,
         removalPolicy: RemovalPolicy.DESTROY,
+        fileSystemName: `aws-storage-performance-efs-${index}`,
       }
     );
 
@@ -203,6 +221,7 @@ export class AwsStoragePerformanceStack extends Stack {
       this,
       `aws-storage-performance-bucket-${index}`,
       {
+        bucketName: `aws-storage-performance-bucket-${index}`,
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
       }
@@ -216,6 +235,7 @@ export class AwsStoragePerformanceStack extends Stack {
       this,
       `aws-storage-performance-s3fs-bucket-${index}`,
       {
+        bucketName: `aws-storage-performance-s3fs-bucket-${index}`,
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
       }
