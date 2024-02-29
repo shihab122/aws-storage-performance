@@ -1,0 +1,24 @@
+{
+  "name": "test-runner",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "ts-node index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.19",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.3.3"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1568.0",
+    "dotenv": "^16.4.5",
+    "source-map-support": "^0.5.21"
+  },
+  "author": "Shihab Hossain",
+  "license": "ISC",
+  "types": "./index.d.ts"
+}

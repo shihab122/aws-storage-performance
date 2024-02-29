@@ -95,7 +95,7 @@ export class AwsStoragePerformanceStack extends Stack {
         instanceName: 'AWSStoragePerformanceInstance',
         instanceType: ec2.InstanceType.of(
           ec2.InstanceClass.T3,
-          ec2.InstanceSize.MICRO
+          ec2.InstanceSize.LARGE
         ),
         machineImage: new ec2.AmazonLinuxImage({
           generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -140,11 +140,25 @@ export class AwsStoragePerformanceStack extends Stack {
       path: path.join(__dirname, config.file.local_path),
     });
     s3Asset.grantRead(ec2Instance);
-    ec2Instance.userData.addCommands(
+    const session = ec2Instance.addUserData(
       `sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm`,
       `sudo systemctl start amazon-ssm-agent`,
-      `aws s3 cp s3://${s3Asset.s3BucketName}/${s3Asset.s3ObjectKey} lib/test-runner/Test.docx`
-      // `npx ts-node lib/test-runner/index.ts`
+      `cd /`,
+      `sudo su`,
+      `aws s3 cp ${s3Asset.s3ObjectUrl} tmp/lib/test-runner.zip`,
+      `cd tmp/lib/test-runner`,
+      `unzip test-runner.zip`,
+      `rm -rf test-runner`,
+      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash`,
+      `source ~/.bashrc`,
+      `nvm install 16`,
+      `npm install`,
+      `export CDK_DEFAULT_REGION=${process.env.CDK_DEFAULT_REGION}`,
+      `export CDK_ACCCESS_KEY_ID=${process.env.CDK_ACCCESS_KEY_ID}`,
+      `export CDK_SECRET_ACCESS_KEY=${process.env.CDK_SECRET_ACCESS_KEY}`,
+      `export CDK_DEFAULT_ACCOUNT=${process.env.CDK_DEFAULT_ACCOUNT}`,
+      `source ~/.bashrc`,
+      `npm run script`
     );
   }
 

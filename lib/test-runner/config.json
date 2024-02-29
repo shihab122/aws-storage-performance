@@ -9,6 +9,6 @@
   ],
   "file": {
     "type": "actual_file",
-    "local_path": "test-runner"
+    "local_path": "../test-runner"
   }
 }

@@ -2,7 +2,7 @@ import * as AWS from 'aws-sdk';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import config from '../../configs/config.json';
+import config from './config.json';
 
 AWS.config.update({
   region: process.env.CDK_DEFAULT_REGION,
@@ -14,7 +14,6 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 const ec2 = new AWS.EC2();
-const instanceId = process.env.INSTANCE_ID || '';
 
 const fileName = 'Test.docx';
 const fileContent = fs.readFileSync(path.join(__dirname, fileName));
@@ -115,29 +114,30 @@ async function testStorage(): Promise<void> {
     switch (storage.type) {
       case 's3':
         const bucketName = `aws-storage-performance-bucket-${index}`;
-        for (const index of Array(10)) {
+        for (const _ of Array(10)) {
           await uploadToS3(bucketName);
           await downloadFromS3(bucketName);
         }
         break;
       case 'efs':
         const efsVolumeName = `aws-storage-performance-efs-${index}`;
-        for (const index of Array(10)) {
+        for (const _ of Array(10)) {
           await uploadToEFS(efsVolumeName);
           await downloadFromEFS(efsVolumeName);
         }
         break;
       case 'ebs':
         const ebsVolumeName = `aws-storage-performance-ebs-${index}`;
-        for (const index of Array(10)) {
+        for (const _ of Array(10)) {
           await uploadToEBS(ebsVolumeName);
           await downloadFromEBS(ebsVolumeName);
         }
         break;
       case 's3fs':
-        for (const index of Array(10)) {
-          await uploadToS3FS(`aws-storage-performance-bucket-${index}`);
-          await downloadFromS3FS(`aws-storage-performance-bucket-${index}`);
+        const s3fsBucketName = `aws-storage-performance-s3fs-bucket-${index}`;
+        for (const _ of Array(10)) {
+          await uploadToS3FS(s3fsBucketName);
+          await downloadFromS3FS(s3fsBucketName);
         }
         break;
       default:
