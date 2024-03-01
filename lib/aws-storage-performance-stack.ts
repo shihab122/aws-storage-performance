@@ -1,3 +1,4 @@
+import * as dotenv from 'dotenv';
 import * as path from 'path';
 
 import { Stack, StackProps } from 'aws-cdk-lib';
@@ -12,6 +13,8 @@ import { aws_efs as efs } from 'aws-cdk-lib';
 import { aws_iam as iam } from 'aws-cdk-lib';
 import { aws_s3 as s3 } from 'aws-cdk-lib';
 import { aws_s3_assets as s3_assets } from 'aws-cdk-lib';
+
+dotenv.config();
 
 enum StorageType {
   EBS = 'ebs',
@@ -51,10 +54,6 @@ interface File {
 interface StorageConfig {
   storages: Storage[];
   file: File;
-}
-
-interface AwsStoragePerformanceStackProps extends StackProps {
-  storageConfig: StorageConfig;
 }
 
 export class AwsStoragePerformanceStack extends Stack {
@@ -138,12 +137,12 @@ export class AwsStoragePerformanceStack extends Stack {
     }
 
     const filePath = config.file.local_path;
-    const asset = this.createS3Asset(filePath, ec2Instance);
+    const s3Asset = this.createS3Asset(filePath, ec2Instance);
 
     const reportBucketName = 'aws-storage-performance-report-bucket';
     this.createS3ReportBucket(ec2Instance, reportBucketName);
 
-    this.runTestRunner(ec2Instance, asset, reportBucketName);
+    this.runTestRunner(ec2Instance, s3Asset, reportBucketName);
   }
 
   private createEBSVolume(
@@ -282,12 +281,14 @@ export class AwsStoragePerformanceStack extends Stack {
       `sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm`,
       `sudo systemctl start amazon-ssm-agent`,
       `sudo su`,
-      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash`,
-      `while pgrep -f "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" > /dev/null; do sleep 1; done`,
-      `source ~/.bashrc`,
+      `aws s3 cp ${s3Asset.s3ObjectUrl} /tmp/lib/test-runner.zip`,
+      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh > install_nvm.sh`,
+      `bash install_nvm.sh`,
+      `rm install_nvm.sh`,
+      `export NVM_DIR="$HOME/.nvm"`,
+      `[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"`,
       `nvm install 16`,
       `nvm use 16`,
-      `aws s3 cp ${s3Asset.s3ObjectUrl} /tmp/lib/test-runner.zip`,
       `cd /tmp/lib`,
       `unzip test-runner.zip`,
       `rm -rf test-runner.zip`,
@@ -297,7 +298,6 @@ export class AwsStoragePerformanceStack extends Stack {
       `export CDK_SECRET_ACCESS_KEY=${process.env.CDK_SECRET_ACCESS_KEY}`,
       `export CDK_DEFAULT_ACCOUNT=${process.env.CDK_DEFAULT_ACCOUNT}`,
       `export REPORT_BUCKET_NAME=${reportBucketName}`,
-      `source ~/.bashrc`,
       `npm run start`
     );
   }

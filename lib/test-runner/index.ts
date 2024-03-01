@@ -3,7 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import config from './config.json';
-import process from 'process';
 
 interface LatencyReport {
   service: string;
@@ -193,12 +192,15 @@ async function downloadFromS3FS(volumeName: string): Promise<void> {
 
 async function uploadToS3ReportBucket(): Promise<void> {
   try {
+    await fs.promises.writeFile('report.json', JSON.stringify(report, null, 2));
+    const reportContent = await fs.promises.readFile('report.json');
     const params = {
       Bucket: reportBucketName,
       Key: 'report.json',
-      Body: JSON.stringify(report),
+      Body: reportContent,
     };
     await s3.upload(params).promise();
+    await fs.unlinkSync('report.json');
     console.log(`Uploaded report to S3 bucket: ${reportBucketName}`);
   } catch (error) {
     console.error(`Error uploading report to S3 bucket ${reportBucketName}`);
