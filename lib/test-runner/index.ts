@@ -38,7 +38,7 @@ async function uploadToS3(bucketName: string): Promise<void> {
     };
     await s3.upload(params).promise();
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'S3',
       operation: 'upload',
@@ -60,7 +60,7 @@ async function downloadFromS3(bucketName: string): Promise<void> {
     };
     await s3.getObject(params).promise();
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'S3',
       operation: 'download',
@@ -80,7 +80,7 @@ async function uploadToEFS(
     const startTime = new Date().getTime();
     fs.writeFileSync(`/mnt/${volumeName}/${fileName}`, fileContent);
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'EFS',
       configuration: peformanceMode,
@@ -101,7 +101,7 @@ async function downloadFromEFS(
     const startTime = new Date().getTime();
     fs.readFileSync(`/mnt/${volueName}/${fileName}`, 'utf-8');
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'EFS',
       configuration: performanceMode,
@@ -122,7 +122,7 @@ async function uploadToEBS(
     const startTime = new Date().getTime();
     fs.writeFileSync(`/mnt/${volumeName}/${fileName}`, fileContent);
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'EBS',
       configuration: ebsType,
@@ -143,7 +143,7 @@ async function downloadFromEBS(
     const startTime = new Date().getTime();
     fs.readFileSync(`/mnt/${volumeName}/${fileName}`, 'utf-8');
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'EBS',
       configuration: ebsType,
@@ -161,7 +161,7 @@ async function uploadToS3FS(volumeName: string): Promise<void> {
     const startTime = new Date().getTime();
     fs.writeFileSync(`/mnt/${volumeName}/${fileName}`, fileContent);
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'S3FS',
       operation: 'upload',
@@ -178,7 +178,7 @@ async function downloadFromS3FS(volumeName: string): Promise<void> {
     const startTime = new Date().getTime();
     fs.readFileSync(`/mnt/${volumeName}/${fileName}`, 'utf-8');
     const endTime = new Date().getTime();
-    const latency = (endTime - startTime) / 1000;
+    const latency = (endTime - startTime) * 1e6;
     report.push({
       service: 'S3FS',
       operation: 'download',
