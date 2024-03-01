@@ -112,6 +112,7 @@ export class AwsStoragePerformanceStack extends Stack {
           this.createEBSVolume(
             role,
             index,
+            ec2Instance,
             availabilityZone,
             storage as Storage
           );
@@ -136,35 +137,19 @@ export class AwsStoragePerformanceStack extends Stack {
       }
     }
 
-    const s3Asset = new s3_assets.Asset(this, 'TestRunnerAsset', {
-      path: path.join(__dirname, config.file.local_path),
-    });
-    s3Asset.grantRead(ec2Instance);
-    const session = ec2Instance.addUserData(
-      `sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm`,
-      `sudo systemctl start amazon-ssm-agent`,
-      `cd /`,
-      `sudo su`,
-      `aws s3 cp ${s3Asset.s3ObjectUrl} tmp/lib/test-runner.zip`,
-      `cd tmp/lib/test-runner`,
-      `unzip test-runner.zip`,
-      `rm -rf test-runner`,
-      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash`,
-      `source ~/.bashrc`,
-      `nvm install 16`,
-      `npm install`,
-      `export CDK_DEFAULT_REGION=${process.env.CDK_DEFAULT_REGION}`,
-      `export CDK_ACCCESS_KEY_ID=${process.env.CDK_ACCCESS_KEY_ID}`,
-      `export CDK_SECRET_ACCESS_KEY=${process.env.CDK_SECRET_ACCESS_KEY}`,
-      `export CDK_DEFAULT_ACCOUNT=${process.env.CDK_DEFAULT_ACCOUNT}`,
-      `source ~/.bashrc`,
-      `npm run script`
-    );
+    const filePath = config.file.local_path;
+    const asset = this.createS3Asset(filePath, ec2Instance);
+
+    const reportBucketName = 'aws-storage-performance-report-bucket';
+    this.createS3ReportBucket(ec2Instance, reportBucketName);
+
+    this.runTestRunner(ec2Instance, asset, reportBucketName);
   }
 
   private createEBSVolume(
     role: iam.Role,
     index: number,
+    ec2Instance: ec2.Instance,
     availabilityZone: string,
     storage: Storage
   ) {
@@ -193,6 +178,13 @@ export class AwsStoragePerformanceStack extends Stack {
 
     volume.grantAttachVolume(role);
     volume.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    ec2Instance.userData.addCommands(
+      'DEVICE_NAME=$(lsblk -o NAME -n | grep xvdf || true)',
+      'if [ -z "$DEVICE_NAME" ]; then DEVICE_NAME="/dev/xvdf"; fi', // default to /dev/xvdf if not found
+      'sudo mkfs -t ext4 $DEVICE_NAME',
+      `sudo mkdir /mnt/ebs-${index}`,
+      `sudo mount $DEVICE_NAME /mnt/ebs-${index}`
+    );
   }
 
   private createEFSFileSystem(
@@ -257,9 +249,56 @@ export class AwsStoragePerformanceStack extends Stack {
 
     ec2Instance.userData.addCommands(
       'sudo yum install -y s3fs-fuse',
-      'sudo mkdir /mnt/s3fs',
+      `sudo mkdir /mnt/s3fs-${index}`,
       `echo "${s3fsBucket.bucketName} /mnt/s3fs fuse.s3fs _netdev,allow_other 0 0" | sudo tee -a /etc/fstab`,
       'sudo mount -a'
+    );
+  }
+
+  private createS3ReportBucket(ec2Instance: ec2.Instance, bucketName: string) {
+    const reportBucket = new s3.Bucket(this, bucketName, {
+      bucketName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    reportBucket.grantReadWrite(ec2Instance);
+  }
+
+  private createS3Asset(filePath: string, ec2Instance: ec2.Instance) {
+    const s3Asset = new s3_assets.Asset(this, 'TestRunnerAsset', {
+      path: path.join(__dirname, filePath),
+    });
+    s3Asset.grantRead(ec2Instance);
+    return s3Asset;
+  }
+
+  private runTestRunner(
+    ec2Instance: ec2.Instance,
+    s3Asset: s3_assets.Asset,
+    reportBucketName: string
+  ) {
+    ec2Instance.addUserData(
+      `sudo yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm`,
+      `sudo systemctl start amazon-ssm-agent`,
+      `sudo su`,
+      `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash`,
+      `while pgrep -f "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" > /dev/null; do sleep 1; done`,
+      `source ~/.bashrc`,
+      `nvm install 16`,
+      `nvm use 16`,
+      `aws s3 cp ${s3Asset.s3ObjectUrl} /tmp/lib/test-runner.zip`,
+      `cd /tmp/lib`,
+      `unzip test-runner.zip`,
+      `rm -rf test-runner.zip`,
+      `npm install`,
+      `export CDK_DEFAULT_REGION=${process.env.CDK_DEFAULT_REGION}`,
+      `export CDK_ACCCESS_KEY_ID=${process.env.CDK_ACCCESS_KEY_ID}`,
+      `export CDK_SECRET_ACCESS_KEY=${process.env.CDK_SECRET_ACCESS_KEY}`,
+      `export CDK_DEFAULT_ACCOUNT=${process.env.CDK_DEFAULT_ACCOUNT}`,
+      `export REPORT_BUCKET_NAME=${reportBucketName}`,
+      `source ~/.bashrc`,
+      `npm run start`
     );
   }
 }
